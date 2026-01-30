@@ -130,11 +130,11 @@ public final class PacketSender {
             return;
         }
         if (stream.eventLoop().inEventLoop()) {
-            writeBatchAndFlush(stream, packets, "client");
+            writeBatchAndFlush(stream, packets);
         } else {
             stream.eventLoop().execute(() -> {
                 if (stream.isActive()) {
-                    writeBatchAndFlush(stream, packets, "client");
+                    writeBatchAndFlush(stream, packets);
                 } else {
                     releaseAll(packets);
                 }
@@ -157,11 +157,11 @@ public final class PacketSender {
             return;
         }
         if (stream.eventLoop().inEventLoop()) {
-            writeBatchAndFlush(stream, packets, "backend");
+            writeBatchAndFlush(stream, packets);
         } else {
             stream.eventLoop().execute(() -> {
                 if (stream.isActive()) {
-                    writeBatchAndFlush(stream, packets, "backend");
+                    writeBatchAndFlush(stream, packets);
                 } else {
                     releaseAll(packets);
                 }
@@ -173,13 +173,9 @@ public final class PacketSender {
      * Writes all packets in the batch and flushes once at the end.
      * Must be called from the stream's event loop thread.
      */
-    private void writeBatchAndFlush(QuicStreamChannel stream, List<ByteBuf> packets, String target) {
+    private void writeBatchAndFlush(QuicStreamChannel stream, List<ByteBuf> packets) {
         for (ByteBuf packet : packets) {
-            stream.write(packet).addListener(future -> {
-                if (!future.isSuccess()) {
-                    LOGGER.warn("Session {}: Failed to write to {}", sessionId, target, future.cause());
-                }
-            });
+            stream.write(packet, stream.voidPromise());
         }
         stream.flush();
     }
