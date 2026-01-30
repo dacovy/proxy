@@ -169,6 +169,7 @@ public final class ClientPacketHandler extends SimpleChannelInboundHandler<Objec
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         LOGGER.error("Session {}: Exception in client handler", session.getSessionId(), cause);
+        releasePendingBuffers();
         session.disconnect("Internal error: " + cause.getMessage());
     }
 }

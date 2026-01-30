@@ -6,8 +6,8 @@ import com.hypixel.hytale.protocol.packets.connection.Disconnect;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import me.internalizable.numdrassl.profiling.ProxyMetrics;
 import io.netty.util.ReferenceCountUtil;
+import me.internalizable.numdrassl.profiling.ProxyMetrics;
 import me.internalizable.numdrassl.server.ProxyCore;
 import me.internalizable.numdrassl.session.ProxySession;
 import me.internalizable.numdrassl.session.SessionState;
@@ -84,13 +84,18 @@ public final class BackendPacketHandler extends SimpleChannelInboundHandler<Obje
         // that cannot be intercepted by plugins. Instead of submitting each packet as a
         // separate cross-event-loop task, we buffer them and submit the entire batch
         // as a single task in channelReadComplete().
-        int bytes = raw.readableBytes();
-        if (proxyCore.getConfig().isDebugMode()) {
-            int packetId = bytes >= 8 ? raw.getIntLE(4) : -1;
-            LOGGER.debug("Session {}: Buffering raw backend packet id={}", session.getSessionId(), packetId);
+        if (session.getState() == SessionState.CONNECTED) {
+            int bytes = raw.readableBytes();
+            if (proxyCore.getConfig().isDebugMode()) {
+                int packetId = bytes >= 8 ? raw.getIntLE(4) : -1;
+                LOGGER.debug("Session {}: Buffering raw backend packet id={}", session.getSessionId(), packetId);
+            }
+            pendingRawToClient.add(raw.retain());
+            ProxyMetrics.getInstance().recordRawBytesFromBackend(bytes);
+        } else {
+            LOGGER.debug("Session {}: Dropping raw backend packet - not connected (state={})",
+                session.getSessionId(), session.getState());
         }
-        pendingRawToClient.add(raw.retain());
-        ProxyMetrics.getInstance().recordRawBytesFromBackend(bytes);
     }
 
     private void dispatchPacket(Packet packet) {
@@ -192,6 +197,7 @@ public final class BackendPacketHandler extends SimpleChannelInboundHandler<Obje
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         LOGGER.error("Session {}: Exception in backend handler", session.getSessionId(), cause);
+        releasePendingBuffers();
         session.disconnect("Backend error: " + cause.getMessage());
     }
 }
