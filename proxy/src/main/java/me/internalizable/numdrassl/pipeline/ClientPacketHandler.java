@@ -93,6 +93,7 @@ public final class ClientPacketHandler extends SimpleChannelInboundHandler<Objec
             int bytes = raw.readableBytes();
             pendingRawToBackend.add(raw.retain());
             ProxyMetrics.getInstance().recordRawBytesFromClient(bytes);
+            ProxyMetrics.getInstance().recordRawBytesToBackend(bytes);
         } else {
             LOGGER.debug("Session {}: Dropping raw packet - not connected (state={})",
                 session.getSessionId(), session.getState());
